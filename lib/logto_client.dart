@@ -198,7 +198,6 @@ class LogtoClient {
   // Sign in using the PKCE flow.
   Future<void> signIn(
     String redirectUri, {
-    logto_core.InteractionMode? interactionMode,
     String? loginHint,
     String? directSignIn,
     FirstScreen? firstScreen,
@@ -227,7 +226,6 @@ class LogtoClient {
         state: _state,
         resources: config.resources,
         scopes: config.scopes,
-        interactionMode: interactionMode,
         loginHint: loginHint,
         firstScreen: firstScreen,
         directSignIn: directSignIn,

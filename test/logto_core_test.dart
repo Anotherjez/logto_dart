@@ -25,16 +25,14 @@ void main() {
   const String state = 'foo_state';
 
   test('Generate SignIn Uri', () {
-    const InteractionMode interactionMode = InteractionMode.signUp;
-
     var signInUri = logto_core.generateSignInUri(
-        authorizationEndpoint: authorizationEndpoint,
-        clientId: clientId,
-        redirectUri: redirectUri,
-        codeChallenge: codeChallenge,
-        resources: ['http://foo.api'],
-        state: state,
-        interactionMode: interactionMode);
+      authorizationEndpoint: authorizationEndpoint,
+      clientId: clientId,
+      redirectUri: redirectUri,
+      codeChallenge: codeChallenge,
+      resources: ['http://foo.api'],
+      state: state,
+    );
 
     expect(signInUri.scheme, 'http');
     expect(signInUri.host, 'foo.com');
@@ -52,8 +50,6 @@ void main() {
         containsPair('scope', reservedScopes.join(' ')));
     expect(signInUri.queryParameters, containsPair('response_type', 'code'));
     expect(signInUri.queryParameters, containsPair('prompt', 'consent'));
-    expect(
-        signInUri.queryParameters, containsPair('interaction_mode', 'signUp'));
   });
 
   test('Generate SignIn Uri with organization scope', () {

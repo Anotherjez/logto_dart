@@ -14,6 +14,10 @@ abstract class LogtoStorageStrategy {
 class SecureStorageStrategy implements LogtoStorageStrategy {
   final _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(),
+    iOptions: IOSOptions(
+      synchronizable: false,
+      accessibility: KeychainAccessibility.first_unlock,
+    ),
   );
 
   @override

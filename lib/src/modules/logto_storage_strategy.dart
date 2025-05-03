@@ -14,7 +14,6 @@ abstract class LogtoStorageStrategy {
 class SecureStorageStrategy implements LogtoStorageStrategy {
   final _storage = const FlutterSecureStorage(
     aOptions: AndroidOptions(),
-    wOptions: WindowsOptions(useBackwardCompatibility: true),
   );
 
   @override

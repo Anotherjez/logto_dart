@@ -335,7 +335,7 @@ class LogtoClient {
             url: signOutUri.toString(),
             callbackUrlScheme: redirectUriScheme,
             options: const FlutterWebAuth2Options(
-                silentAuth: true, intentFlags: ephemeralIntentFlags));
+                intentFlags: ephemeralIntentFlags));
       }
     } finally {
       if (_httpClient == null) {

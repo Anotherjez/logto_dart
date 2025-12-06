@@ -236,15 +236,15 @@ class LogtoClient {
 
       final redirectUriScheme = Uri.parse(redirectUri).scheme;
 
-      // Determine if we should use webview or native browser
-      final shouldUseWebview = _shouldUseWebview(redirectUri);
-
       final String callbackUri = await FlutterWebAuth2.authenticate(
         url: signInUri.toString(),
         callbackUrlScheme: redirectUriScheme,
-        options: FlutterWebAuth2Options(
-          useWebview: shouldUseWebview,
-          preferEphemeral: false,
+        options: const FlutterWebAuth2Options(
+          /// Prefer ephemeral web views for the sign-in flow. Only has an effect on Android.
+          intentFlags: ephemeralIntentFlags,
+
+          /// Prefer ephemeral web views for the sign-in flow. Only has an effect on iOS.
+          preferEphemeral: true,
         ),
       );
 
@@ -253,26 +253,6 @@ class LogtoClient {
       _loading = false;
       if (_httpClient == null) httpClient.close();
     }
-  }
-
-  // Determine whether to use webview based on platform and URI scheme
-  bool _shouldUseWebview(String redirectUri) {
-    final uri = Uri.parse(redirectUri);
-
-    // On Windows/Linux, only use native browser if:
-    // 1. The scheme is http/https AND
-    // 2. The host is localhost
-    if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
-      if (uri.scheme == 'http' || uri.scheme == 'https') {
-        if (uri.host == 'localhost' || uri.host == '127.0.0.1') {
-          return false; // Use native browser
-        }
-      }
-      return true; // Use webview for custom schemes
-    }
-
-    // For other platforms (iOS, Android, Web), use default behavior (native)
-    return false;
   }
 
   // Handle the sign-in callback and complete the token exchange process.
@@ -350,14 +330,12 @@ class LogtoClient {
             postLogoutRedirectUri: Uri.parse(redirectUri));
         final redirectUriScheme = Uri.parse(redirectUri).scheme;
 
-        final shouldUseWebview = _shouldUseWebview(redirectUri);
-
         // Execute the sign-out flow asynchronously, this should not block the main app to render the UI.
         await FlutterWebAuth2.authenticate(
             url: signOutUri.toString(),
             callbackUrlScheme: redirectUriScheme,
-            options: FlutterWebAuth2Options(
-                useWebview: shouldUseWebview, preferEphemeral: false));
+            options: const FlutterWebAuth2Options(
+                intentFlags: ephemeralIntentFlags));
       }
     } finally {
       if (_httpClient == null) {

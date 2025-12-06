@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:jose/jose.dart';
@@ -219,10 +220,15 @@ class LogtoClient {
       _tokenStorage.setIdToken(null);
       final oidcConfig = await _getOidcConfig(httpClient);
 
+      // Convert custom scheme to localhost on Windows/Linux for native browser support
+      final adaptedRedirectUri = _adaptRedirectUriForPlatform(redirectUri);
+      final actualRedirectUri = adaptedRedirectUri['uri'] as String;
+      final originalRedirectUri = redirectUri;
+
       final signInUri = logto_core.generateSignInUri(
         authorizationEndpoint: oidcConfig.authorizationEndpoint,
         clientId: config.appId,
-        redirectUri: redirectUri,
+        redirectUri: actualRedirectUri,
         codeChallenge: _pkce.codeChallenge,
         state: _state,
         resources: config.resources,
@@ -234,22 +240,52 @@ class LogtoClient {
         extraParams: extraParams,
       );
 
-      final redirectUriScheme = Uri.parse(redirectUri).scheme;
+      final redirectUriScheme = Uri.parse(actualRedirectUri).scheme;
 
       final String callbackUri = await FlutterWebAuth2.authenticate(
         url: signInUri.toString(),
         callbackUrlScheme: redirectUriScheme,
         options: FlutterWebAuth2Options(
-          /// Use native browser instead of WebView for Windows and Linux.
-          useWebview: !Platform.isWindows && !Platform.isLinux,
+          /// Use native browser instead of WebView on Windows/Linux
+          useWebview: !(adaptedRedirectUri['useNativeBrowser'] as bool),
+          preferEphemeral: false,
         ),
       );
 
-      await _handleSignInCallback(callbackUri, redirectUri, httpClient);
+      await _handleSignInCallback(callbackUri, originalRedirectUri, httpClient);
     } finally {
       _loading = false;
       if (_httpClient == null) httpClient.close();
     }
+  }
+
+  // Adapt redirect URI for platform-specific requirements
+  Map<String, dynamic> _adaptRedirectUriForPlatform(String redirectUri) {
+    final uri = Uri.parse(redirectUri);
+
+    // On Windows/Linux with useWebview: false, only http://localhost is supported
+    // Convert custom schemes to localhost to enable native browser
+    if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
+      if (uri.scheme != 'http' && uri.scheme != 'https') {
+        // Generate a random port between 43823 and 44823 for localhost
+        final port = 43823 + Random().nextInt(1000);
+        return {
+          'uri': 'http://localhost:$port/callback',
+          'useNativeBrowser': true,
+        };
+      } else if (uri.host == 'localhost' || uri.host == '127.0.0.1') {
+        return {
+          'uri': redirectUri,
+          'useNativeBrowser': true,
+        };
+      }
+    }
+
+    // For other platforms or http/https schemes, use original URI
+    return {
+      'uri': redirectUri,
+      'useNativeBrowser': false,
+    };
   }
 
   // Handle the sign-in callback and complete the token exchange process.
@@ -321,18 +357,23 @@ class LogtoClient {
       // iOS uses the preferEphemeral flag on the sign-in flow, it will not preserve the session.
       // For Android and Web, we need to redirect to the end session endpoint to clear the session manually.
       if (kIsWeb || !Platform.isIOS) {
+        // Convert custom scheme to localhost on Windows/Linux for native browser support
+        final adaptedRedirectUri = _adaptRedirectUriForPlatform(redirectUri);
+        final actualRedirectUri = adaptedRedirectUri['uri'] as String;
+
         final signOutUri = logto_core.generateSignOutUri(
             endSessionEndpoint: oidcConfig.endSessionEndpoint,
             clientId: config.appId,
-            postLogoutRedirectUri: Uri.parse(redirectUri));
-        final redirectUriScheme = Uri.parse(redirectUri).scheme;
+            postLogoutRedirectUri: Uri.parse(actualRedirectUri));
+        final redirectUriScheme = Uri.parse(actualRedirectUri).scheme;
 
         // Execute the sign-out flow asynchronously, this should not block the main app to render the UI.
         await FlutterWebAuth2.authenticate(
             url: signOutUri.toString(),
             callbackUrlScheme: redirectUriScheme,
             options: FlutterWebAuth2Options(
-                useWebview: !Platform.isWindows && !Platform.isLinux));
+                useWebview: !(adaptedRedirectUri['useNativeBrowser'] as bool),
+                preferEphemeral: false));
       }
     } finally {
       if (_httpClient == null) {
